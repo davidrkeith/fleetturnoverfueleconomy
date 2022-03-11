@@ -1,0 +1,660 @@
+{UTF-8}
+"2050 Emissions Target CO2 per mile p"[Platform]= INITIAL(
+	Obama Start to Intermediate Target p[Platform](INITIAL TIME)*MAX(0,(1-"2050 reduction of emissions"\
+		)))
+	~	g CO2/mile
+	~		|
+
+"2050 reduction of emissions"=
+	0.75
+	~	dmnl
+	~		|
+
+New Vehicle Fuel Consumption=
+	New Vehicle Fuel Consumption p[Car]*share of cars in the fleet + New Vehicle Fuel Consumption p\
+		[LightTruck]*(1-share of cars in the fleet)
+	~	gallon/mile
+	~		|
+
+CO2 conversion factor=
+	8887
+	~	grams CO2/gallon
+	~		|
+
+New Vehicle Fuel Consumption p[Platform]=
+	New Vehicle Emissions p[Platform]/CO2 conversion factor
+	~	gallon/mile
+	~		|
+
+Fleet Average Fuel Consumption=
+	Average Fleet Emissions/CO2 conversion factor
+	~	gallon/mile
+	~		|
+
+New Vehicle Emissions p[Platform]=
+	IF THEN ELSE
+	  (SW Scenario = 1,
+	   Obama New Vehicle Emissions p[Platform],
+	   IF THEN ELSE
+	     (SW Scenario = 2,
+	      Trump New Vehicle Emissions p[Platform],
+	      Trump to Obama New Vehicle Emissions p[Platform]
+	     )
+	  )
+	~	grams CO2/mile
+	~		|
+
+Total Emission Rate=
+	SUM(Emission Rate ap[Age!,Platform!])
+	~	gigatonnes CO2/year
+	~		|
+
+Greenhouse Gas Emissions= INTEG (
+	Total Emission Rate,
+		0)
+	~	gigatonnes CO2
+	~		|
+
+Conversion grams to gigatons=
+	1/1e+15
+	~	gigatonnes CO2/grams CO2
+	~		|
+
+Trump Start to Intermediate Target p[Car]=
+	GET XLS LOOKUPS(Excel Input,'New Cars','A','G3') ~~|
+Trump Start to Intermediate Target p[LightTruck]=
+	GET XLS LOOKUPS(Excel Input,'New Light Trucks','A','G3')
+	~	g CO2/mile
+	~		|
+
+Trump to Obama New Vehicle Emissions p[Platform]=
+	IF THEN ELSE
+	  (Time <= Trump Intermediate Target Year,
+	   Trump New Vehicle Emissions p[Platform], 
+	   Obama New Vehicle Emissions p[Platform]
+	  )
+	~	grams CO2/mile
+	~		|
+
+Obama Start to Intermediate Target p[Car]=
+	GET XLS LOOKUPS(Excel Input,'New Cars','A','D3') ~~|
+Obama Start to Intermediate Target p[LightTruck]=
+	GET XLS LOOKUPS(Excel Input,'New Light Trucks','A','D3')
+	~	g CO2/mile
+	~		|
+
+SW Scenario=
+	1
+	~	dmnl [1,3,1]
+	~	1 - Obama, 
+		2 - Trump, 
+		3 - Start-2026 Trump, 2026-Finish Obama
+	|
+
+Trump New Vehicle Emissions p[Platform]=
+	IF THEN ELSE
+	  (Time <= Trump Intermediate Target Year,
+	   Trump Start to Intermediate Target p[Platform](Time), 
+	   Trump Start to Intermediate Target p[Platform](Trump Intermediate Target Year)+
+	    ("2050 Emissions Target CO2 per mile p"[Platform] - Trump Start to Intermediate Target p\
+		[Platform](Trump Intermediate Target Year))/
+	    (FINAL TIME - Trump Intermediate Target Year)*(Time - Trump Intermediate Target Year\
+		)
+	  )
+	~	grams CO2/mile
+	~		|
+
+Obama New Vehicle Emissions p[Platform]=
+	IF THEN ELSE
+	  (Time<=Obama Intermediate Target Year,
+	   Obama Start to Intermediate Target p[Platform](Time), 
+	   Obama Start to Intermediate Target p[Platform](Obama Intermediate Target Year)+
+	    ("2050 Emissions Target CO2 per mile p"[Platform] - Obama Start to Intermediate Target p\
+		[Platform](Obama Intermediate Target Year))/
+	    (FINAL TIME - Obama Intermediate Target Year)*(Time - Obama Intermediate Target Year\
+		)
+	  )
+	~	grams CO2/mile
+	~		|
+
+Trump Intermediate Target Year=
+	2026
+	~	year
+	~		|
+
+Obama Intermediate Target Year=
+	2025
+	~	year
+	~		|
+
+Emissions Introduction p[Platform]=
+	Sales p[Platform]*New Vehicle Emissions p[Platform]
+	~	grams CO2/mile*vehicles/year
+	~		|
+
+Average Fleet Emissions=
+	SUM(Emissions cp[Emissions Cohort!,Platform!])/SUM(Fleet ap[Age!,Platform!])
+	~	grams CO2/mile
+	~		|
+
+share of cars in the fleet=
+	Total fleet p[Car]/SUM(Total fleet p[Platform!])
+	~	dmnl
+	~		|
+
+Total fleet=
+	SUM(Total fleet p[Platform!])
+	~	vehicles
+	~		|
+
+Sales p[Platform]=
+	Total outflow p[Platform]
+	~	vehicles/year
+	~		|
+
+Emissions Cohort Progression cp[Emissions Cohort,Platform]=
+	Fleet Aging ap[Age,Platform]*Average Emissions cp[Emissions Cohort,Platform]
+	~	grams CO2/mile*vehicles/year
+	~		|
+
+Emissions cp[c0,Platform]= INTEG (
+	Emissions Introduction p[Platform]-Emissions Cohort Progression cp[c0,Platform]-Emissions Phase Out cp\
+		[c0,Platform
+	],
+		Initial Emissions cp[c0,Platform]) ~~|
+Emissions cp[All but first,Platform]= INTEG (
+	Emissions Cohort Progression cp[All but last,Platform]-Emissions Cohort Progression cp\
+		[All but first,Platform]-
+Emissions Phase Out cp[All but first,Platform],
+		Initial Emissions cp[All but first,Platform])
+	~	vehicles*grams CO2/mile
+	~		|
+
+Emissions Phase Out cp[Emissions Cohort,Platform]=
+	Retirements ap[Age,Platform]*Average Emissions cp[Emissions Cohort,Platform]
+	~	grams CO2/mile*vehicles/year
+	~		|
+
+Average Emissions cp[Emissions Cohort,Platform]=
+	Emissions cp[Emissions Cohort,Platform]/Fleet ap[Age,Platform]
+	~	grams CO2/mile
+	~		|
+
+Fleet ap[a0,Platform]= INTEG (
+	Sales p[Platform]-Fleet Aging ap[a0,Platform]-Retirements ap[a0,Platform],
+		Initial Fleet ap[a0,Platform]) ~~|
+Fleet ap[All but youngest,Platform]= INTEG (
+	Fleet Aging ap[All but oldest,Platform]-Fleet Aging ap[All but youngest,Platform]-Retirements ap\
+		[All but youngest
+,Platform],
+		Initial Fleet ap[All but youngest,Platform])
+	~	vehicles
+	~		|
+
+Hazard Rate ap[Age,Car]=
+	GET XLS CONSTANTS(Excel Input,'Cars','D2*') ~~|
+Hazard Rate ap[Age,LightTruck]=
+	GET XLS CONSTANTS(Excel Input,'LightTrucks','D2*')
+	~	dmnl/year
+	~	year to year hazard rate for cars and light trucks
+	|
+
+Vehicle Miles Traveled ap[Age,Car]=
+	GET XLS CONSTANTS(Excel Input,'Cars','E2*') ~~|
+Vehicle Miles Traveled ap[Age,LightTruck]=
+	GET XLS CONSTANTS(Excel Input,'LightTrucks','E2*')
+	~	miles/vehicle/year
+	~		|
+
+Initial Fleet ap[Age,Car]=
+	GET XLS CONSTANTS(Excel Input,'Cars','G2*') ~~|
+Initial Fleet ap[Age,LightTruck]=
+	GET XLS CONSTANTS(Excel Input,'LightTrucks','G2*')
+	~	vehicles
+	~		|
+
+Initial Emissions cp[Emissions Cohort,Car]=
+	GET XLS CONSTANTS(Excel Input,'Cars','I2*') ~~|
+Initial Emissions cp[Emissions Cohort,LightTruck]=
+	GET XLS CONSTANTS(Excel Input,'LightTrucks','I2*')
+	~	grams CO2/mile*vehicles
+	~		|
+
+Excel Input:IS:
+	'Fleet Model Inputs - Oak Ridge data v8.xlsx'
+	~	
+	~		|
+
+Total fleet p[Platform]=
+	SUM(Fleet ap[Age!,Platform])
+	~	vehicles
+	~		|
+
+Total outflow p[Platform]=
+	SUM(Retirements ap[Age!,Platform])+Fleet Aging ap[a30,Platform]
+	~	vehicles/year
+	~		|
+
+Fleet Aging ap[Age,Platform]=
+	Fleet ap[Age,Platform]/Average Time Per Age[Age]
+	~	vehicles/year
+	~		|
+
+Retirements ap[Age,Platform]=
+	Fleet ap[Age,Platform]*Hazard Rate ap[Age,Platform]
+	~	vehicles/year
+	~		|
+
+Emission Rate ap[Age,Platform]=
+	Emissions cp[Emissions Cohort,Platform]*Vehicle Miles Traveled ap[Age,Platform]*Conversion grams to gigatons
+	~	gigatonnes CO2/year
+	~		|
+
+Age:
+	(a0-a30)->Emissions Cohort
+	~	
+	~		|
+
+All but first:
+	(c1-c30)->All but last
+	~	
+	~		|
+
+All but last:
+	(c0-c29)->All but first
+	~	
+	~		|
+
+All but oldest:
+	(a0-a29)->All but youngest
+	~	
+	~		|
+
+All but youngest:
+	(a1-a30)->All but first
+	~	
+	~		|
+
+Average Time Per Age[Age]=
+	1,1,1,1,1,1,1,1,1,1,
+	1,1,1,1,1,1,1,1,1,1,
+	1,1,1,1,1,1,1,1,1,1,5
+	~	year
+	~		|
+
+Emissions Cohort:
+	(c0-c30)->Age
+	~	
+	~		|
+
+Platform:
+	Car, LightTruck
+	~	
+	~		|
+
+********************************************************
+	.Control
+********************************************************~
+		Simulation Control Parameters
+	|
+
+FINAL TIME  = 2050
+	~	year
+	~	The final time for the simulation.
+	|
+
+INITIAL TIME  = 2018
+	~	year
+	~	The initial time for the simulation.
+	|
+
+SAVEPER  = 
+        TIME STEP
+	~	year [0,?]
+	~	The frequency with which output is stored.
+	|
+
+TIME STEP  = 0.125
+	~	year [0,?]
+	~	The time step for the simulation.
+	|
+
+\\\---/// Sketch information - do not modify anything except names
+V300  Do not put anything below this section - it will be ignored
+*Greenhouse Gas Accounting
+$192-192-192,0,Arial|14|B|0-0-0|0-0-0|0-0-255|-1--1--1|-1--1--1|120,120,60,0
+10,1,Emissions cp,1605,416,147,38,8,130,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+10,2,Vehicle Miles Traveled ap,1285,401,78,27,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|14|B|255-128-0
+10,3,Greenhouse Gas Emissions,1342,892,117,68,3,131,0,0,0,0,0,0
+10,4,Emission Rate ap,1533,611,55,27,8,3,0,0,0,0,0,0
+1,5,2,4,0,0,43,0,2,192,0,-1--1--1,|14||0-0-0,1|(1403,500)|
+1,6,1,4,0,0,43,0,2,192,0,-1--1--1,|14||0-0-0,1|(1568,512)|
+12,7,48,1886,901,10,8,0,3,0,0,-1,0,0,0
+1,8,10,3,4,0,0,22,0,0,0,-1--1--1,,1|(1579,901)|
+1,9,10,7,100,0,0,22,0,0,0,-1--1--1,,1|(1802,901)|
+11,10,48,1714,901,15,20,34,3,0,0,1,0,0,0
+10,11,Total Emission Rate,1714,950,91,29,40,131,0,0,-1,0,0,0
+1,12,4,10,1,0,43,0,2,64,0,-1--1--1,|14||0-0-0,1|(1554,688)|
+10,13,Conversion grams to gigatons,1900,262,105,27,8,3,0,0,0,0,0,0
+1,14,13,4,1,0,0,0,0,128,0,-1--1--1,,1|(1826,475)|
+1,17,15,16,0,0,43,0,2,192,0,-1--1--1,|14||0-0-0,1|(1485,1198)|
+1,19,18,16,0,0,0,0,0,128,0,-1--1--1,,1|(1789,1196)|
+10,20,Excel Input,1243,241,39,27,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+1,21,20,2,0,0,0,0,0,192,0,-1--1--1,,1|(1261,314)|
+\\\---/// Sketch information - do not modify anything except names
+V300  Do not put anything below this section - it will be ignored
+*ICE CoFlow
+$192-192-192,0,Arial|14|B|0-0-0|0-0-0|0-0-255|-1--1--1|-1--1--1|120,120,65,0
+12,1,0,92,-25,241,222,3,135,0,0,-1,0,0,0
+ 
+10,2,Emissions cp,2001,947,101,50,3,3,0,0,0,0,0,0
+12,3,48,1533,456,10,8,0,3,0,0,-1,0,0,0
+1,4,5,3,100,0,0,22,0,0,0,-1--1--1,,1|(1632,456)|
+11,5,48,1730,456,9,12,34,3,0,0,1,0,0,0
+10,6,Sales p,1730,486,46,18,40,131,0,0,-1,0,0,0
+12,7,48,1995,166,10,8,0,3,0,0,-1,0,0,0
+1,8,9,7,4,0,0,22,0,0,0,-1--1--1,,1|(1992,215)|
+11,9,48,1992,265,12,9,33,3,0,0,2,0,0,0
+10,10,Retirements ap,1904,265,71,27,40,131,0,0,-1,0,0,0
+12,11,48,1521,957,10,8,0,3,0,0,-1,0,0,0
+1,12,14,2,4,0,0,22,0,0,0,-1--1--1,,1|(1794,954)|
+1,13,14,11,100,0,0,22,0,0,0,-1--1--1,,1|(1600,954)|
+11,14,48,1679,954,9,12,34,3,0,0,1,0,0,0
+10,15,Emissions Introduction p,1679,996,88,30,40,131,0,0,-1,0,0,0
+12,16,48,1986,712,10,8,0,3,0,0,-1,0,0,0
+1,17,19,16,4,0,0,22,0,0,0,-1--1--1,,1|(1986,762)|
+1,18,19,2,100,0,0,22,0,0,0,-1--1--1,,1|(1986,859)|
+11,19,48,1986,813,12,9,33,3,0,0,2,0,0,0
+10,20,Emissions Phase Out cp,1843,813,79,27,40,131,0,0,-1,0,0,0
+1,21,6,14,1,0,43,0,2,192,0,-1--1--1,|14||0-0-0,1|(1661,576)|
+10,22,Hazard Rate ap,1767,123,71,27,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|14|B|255-128-0
+11,23,1132,2310,443,9,12,34,131,0,0,1,0,0,0
+10,24,Fleet Aging ap,2310,483,78,28,40,131,0,0,-1,0,0,0
+1,25,27,2,36,0,0,22,2,0,0,-1--1--1,|14||0-0-0,1|(2190,939)|
+1,26,27,2,100,0,0,22,0,0,0,-1--1--1,,1|(2190,939)|
+11,27,940,2288,939,9,12,34,131,0,0,1,0,0,0
+10,28,Emissions Cohort Progression cp,2288,982,117,31,40,131,0,0,-1,0,0,0
+10,29,Average Time Per Age,2372,286,80,27,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|14|B|0-128-0
+1,30,29,23,1,0,45,0,2,192,0,-1--1--1,|14||0-0-0,1|(2348,370)|
+10,31,Initial Fleet ap,1932,573,65,27,8,131,0,2,0,0,0,0,0-0-0,0-0-0,|14|B|255-128-0
+10,32,Initial Emissions cp,1947,1082,79,27,8,131,0,2,0,0,0,0,0-0-0,0-0-0,|14|B|255-128-0
+10,33,Fleet ap,1994,452,118,47,3,131,0,0,0,0,0,0
+1,34,5,33,4,0,0,22,0,0,0,-1--1--1,,1|(1807,456)|
+1,35,9,33,100,0,0,22,0,0,0,-1--1--1,,1|(1992,339)|
+1,36,23,33,36,0,0,22,0,0,0,-1--1--1,,1|(2206,443)|
+1,37,23,33,36,0,0,22,0,0,0,-1--1--1,,1|(2206,443)|
+1,38,33,23,1,0,43,0,2,192,0,-1--1--1,|14||0-0-0,1|(2176,389)|
+1,39,33,10,1,0,43,0,2,64,0,-1--1--1,|14||0-0-0,1|(1865,377)|
+12,40,48,2426,943,10,8,0,3,0,0,-1,0,0,0
+1,41,27,40,68,0,0,22,2,0,0,-1--1--1,|14||0-0-0,1|(2356,939)|
+12,42,48,2460,443,10,8,0,3,0,0,-1,0,0,0
+1,43,23,42,4,0,0,22,0,0,0,-1--1--1,,1|(2384,443)|
+10,44,Total outflow p,1528,310,56,27,8,3,0,0,0,0,0,0
+10,45,Total fleet p,2157,196,105,20,8,3,0,0,0,0,0,0
+1,46,33,45,0,0,0,0,0,192,0,-1--1--1,,1|(2079,316)|
+12,47,0,3426,762,573,504,3,188,0,0,2,0,0,0
+Total Emission Rate,Graph
+10,48,Fleet Aging ap,1349,381,74,27,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+1,49,48,44,0,0,0,0,0,192,0,-1--1--1,,1|(1438,345)|
+10,50,Retirements ap,1359,209,78,27,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+1,51,50,44,0,0,0,0,0,192,0,-1--1--1,,1|(1437,255)|
+1,52,31,33,0,0,0,0,0,64,1,-1--1--1,,1|(1953,528)|
+1,53,32,2,0,0,0,0,0,64,1,-1--1--1,,1|(1966,1032)|
+10,54,Retirements ap,1806,686,78,27,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14|B|128-128-128
+1,55,54,20,1,0,0,0,0,192,0,-1--1--1,,1|(1760,726)|
+10,56,Average Emissions cp,2186,645,79,27,8,3,0,0,0,0,0,0
+1,57,33,56,1,0,0,0,0,192,0,-1--1--1,,1|(2187,561)|
+1,58,2,56,1,0,0,0,0,192,0,-1--1--1,,1|(2114,850)|
+1,59,56,19,1,0,0,0,0,192,0,-1--1--1,,1|(2130,728)|
+1,60,24,27,1,0,0,0,0,192,0,-1--1--1,,1|(2391,673)|
+1,61,56,27,1,0,0,0,0,192,0,-1--1--1,,1|(2256,742)|
+12,62,0,93,-173,194,60,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|14||0-128-0
+Green -- constants that are fixed and well defined
+12,63,0,97,-36,216,60,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|14||0-0-255
+Blue -- constants that are assumptions or need calibrating
+12,64,0,76,112,132,60,8,7,0,2,-1,0,0,0,-1--1--1,0-0-0,|14||255-128-0
+Orange -- constants read from Excel
+10,65,"2050 Emissions Target CO2 per mile p",811,615,116,40,8,3,0,0,0,0,0,0
+10,66,New Vehicle Emissions p,789,1152,73,27,8,131,0,0,0,0,0,0
+1,67,66,15,1,0,0,0,0,192,0,-1--1--1,,1|(1170,1159)|
+10,68,Excel Input,745,96,65,13,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|14||255-128-0
+10,69,Total fleet,2187,68,87,23,8,3,0,0,0,0,0,0
+1,70,45,69,0,0,0,0,0,192,0,-1--1--1,,1|(2169,140)|
+1,71,44,5,0,0,0,0,0,192,0,-1--1--1,,1|(1637,389)|
+10,72,share of cars in the fleet,2417,118,91,27,8,3,0,0,0,0,0,0
+1,73,45,72,0,0,0,0,0,192,0,-1--1--1,,1|(2268,162)|
+10,74,Average Fleet Emissions,2556,675,81,27,8,3,0,0,0,0,0,0
+1,75,2,74,1,0,43,0,3,192,0,192-192-192,|14||0-0-0,1|(2424,760)|
+1,76,33,74,1,0,45,0,3,192,0,160-160-160,|14||0-0-0,1|(2474,575)|
+10,77,New Vehicle Fuel Consumption p,1216,924,102,27,8,3,0,0,0,0,0,0
+1,78,66,77,1,0,0,0,0,192,0,-1--1--1,,1|(1058,1063)|
+10,79,Obama Intermediate Target Year,389,631,72,40,8,3,0,0,0,0,0,0
+10,80,Obama Start to Intermediate Target p,620,552,113,40,8,3,0,0,0,0,0,0
+10,81,Trump Start to Intermediate Target p,1000,549,113,40,8,3,0,0,0,0,0,0
+10,82,Trump New Vehicle Emissions p,1000,709,108,40,8,3,0,0,0,0,0,0
+1,83,81,82,0,0,0,0,0,192,0,-1--1--1,,1|(1000,622)|
+1,84,65,82,0,0,0,0,0,64,0,-1--1--1,,1|(898,658)|
+10,85,FINAL TIME,796,794,43,27,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+1,86,85,82,0,0,0,0,0,64,0,-1--1--1,,1|(865,765)|
+10,87,Time,794,880,42,15,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+1,88,87,82,0,0,0,0,0,64,0,-1--1--1,,1|(876,811)|
+10,89,Trump Intermediate Target Year,1217,628,72,40,8,3,0,0,0,0,0,0
+1,90,89,82,0,0,0,0,0,192,0,-1--1--1,,1|(1132,658)|
+10,91,Obama New Vehicle Emissions p,620,700,108,40,8,3,0,0,0,0,0,0
+1,92,80,91,0,0,0,0,0,192,0,-1--1--1,,1|(620,619)|
+1,93,79,91,0,0,0,0,0,192,0,-1--1--1,,1|(479,657)|
+1,94,85,91,0,0,0,0,0,192,0,-1--1--1,,1|(729,759)|
+1,95,87,91,0,0,0,0,0,192,0,-1--1--1,,1|(723,807)|
+1,96,65,91,0,0,0,0,0,64,0,-1--1--1,,1|(722,654)|
+1,97,91,66,1,0,0,0,0,192,0,-1--1--1,,1|(638,957)|
+1,98,82,66,1,0,0,0,0,192,0,-1--1--1,,1|(962,967)|
+10,99,SW Scenario,428,1119,74,13,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|14||255-0-255
+1,100,99,66,0,0,0,0,0,192,0,-1--1--1,,1|(602,1134)|
+10,101,Excel Input,1542,59,39,27,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+10,102,Excel Input,815,366,39,27,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+1,103,102,80,0,0,0,0,0,192,0,-1--1--1,,1|(729,447)|
+1,104,102,81,0,0,0,0,0,192,0,-1--1--1,,1|(895,446)|
+1,105,101,22,0,0,0,0,0,192,0,-1--1--1,,1|(1631,84)|
+10,106,Excel Input,1785,577,39,27,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+1,107,106,31,0,0,0,0,0,192,0,-1--1--1,,1|(1838,575)|
+10,108,Excel Input,1766,1145,39,27,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+1,109,108,32,0,0,0,0,0,192,0,-1--1--1,,1|(1830,1122)|
+1,110,22,10,0,0,0,0,0,192,0,-1--1--1,,1|(1830,188)|
+10,111,Trump to Obama New Vehicle Emissions p,795,1014,96,40,8,3,0,0,0,0,0,0
+1,112,91,111,1,0,0,0,0,192,0,-1--1--1,,1|(650,857)|
+1,113,82,111,1,0,0,0,0,192,0,-1--1--1,,1|(937,912)|
+1,114,89,111,1,0,0,0,0,192,0,-1--1--1,,1|(1138,838)|
+1,115,87,111,0,0,0,0,0,192,0,-1--1--1,,1|(794,927)|
+1,116,111,66,0,0,0,0,0,192,0,-1--1--1,,1|(792,1082)|
+10,117,CO2 conversion factor,1371,1044,95,27,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|14|B|0-128-0
+1,118,117,77,0,0,0,0,0,192,0,-1--1--1,,1|(1299,988)|
+10,119,Fleet Average Fuel Consumption,2670,865,108,27,8,3,0,0,0,0,0,0
+1,120,74,119,1,0,0,0,0,192,0,-1--1--1,,1|(2624,744)|
+10,121,CO2 conversion factor,2601,1021,102,27,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+1,122,121,119,0,0,0,0,0,192,0,-1--1--1,,1|(2632,949)|
+10,123,share of cars in the fleet,1468,656,98,27,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+10,124,New Vehicle Fuel Consumption,1378,803,102,27,8,3,0,0,0,0,0,0
+1,125,77,124,1,0,0,0,0,192,0,-1--1--1,,1|(1301,869)|
+1,126,123,124,1,0,0,0,0,192,0,-1--1--1,,1|(1444,720)|
+10,127,"2050 reduction of emissions",810,488,87,27,8,3,0,2,0,0,0,0,0-0-0,0-0-0,|14||0-0-255
+1,128,127,65,0,0,0,0,0,192,1,-1--1--1,,1|(810,538)|
+1,129,80,65,0,0,0,0,0,192,1,-1--1--1,,1|(707,580)|
+10,130,INITIAL TIME,803,714,48,27,8,2,0,3,-1,0,0,0,128-128-128,0-0-0,|14||128-128-128
+1,131,130,65,0,0,0,0,0,64,1,-1--1--1,,1|(805,678)|
+///---\\\
+:GRAPH Emissions_Per_Vehicle
+:TITLE Emissions Per Vehicle
+:X-AXIS Time
+:SCALE
+:VAR New ICE Vehicle Emissions p[Car]
+:Y-MIN 0
+:Y-MAX 500
+:VAR New ICE Vehicle Emissions p[LightTruck]
+:VAR EV emissions per mile
+
+:GRAPH Cumulative_Emissions
+:TITLE Cumulative Emissions
+:X-AXIS Time
+:SCALE
+:VAR Greenhouse Gas Emissions
+
+:GRAPH Total_Fleet
+:TITLE Total Fleet
+:X-AXIS Time
+:SCALE
+:VAR Total Fleet by Platform p[Platform]
+:Y-MIN 0
+:Y-MAX 4e+08
+:VAR Total Fleet
+:Y-MIN 0
+:Y-MAX 4e+08
+
+:GRAPH Annual_Emissions
+:TITLE Annual Emissions
+:X-AXIS Time
+:SCALE
+:VAR Total Emission Rate
+:VAR Desired Annual Emissions 2050
+
+:TABLE Cumulative_GHG_Emissions
+:TITLE Cumulative GHG Emissions
+:PRETTYNUM
+:PRINT-EVERY 5
+:X-MIN 2010
+:X-MAX 2050
+:TIME-DOWN
+:FIRST-CELLWIDTH 15
+:CELLWIDTH 14
+:FONT Arial|24|B|0-0-0
+:VAR Greenhouse Gas Emissions
+:L<%^E!@
+1:current - Trump to Obama 75.vdf
+1:current - Trump 75.vdf
+1:current - Obama 75.vdf
+1:current.vdf
+9:current
+22:$,Dollar,Dollars,$s
+22:Day,Days
+22:gallon,gallons
+22:gram CO2,grams CO2,g CO2
+22:Hour,Hours
+22:mile,miles
+22:Month,Months
+22:Person,People,Persons
+22:Unit,Units
+22:vehicle,vehicles
+22:Week,Weeks
+22:Year,Years
+11:Car and Truck Fleet Emission CoFlow.voc
+12:TestOpt.VPD
+15:0,0,0,0,0,0
+19:65,1
+27:0,
+34:0,
+42:1
+72:0
+73:0
+4:Time
+5:Excel Input
+35:Date
+36:YYYY-MM-DD
+37:2000
+38:1
+39:1
+40:0
+41:0
+76:0
+77:0
+78:0
+79:0
+80:0
+81:0
+24:2018
+25:2050
+26:2050
+57:1
+54:0
+55:0
+82:0
+86:0
+59:0
+56:0
+58:0
+71:0
+44:65001
+46:1
+45:1
+49:0
+50:0
+51:
+52:
+53:
+43:current - Trump to Obama 75
+47:current - Trump to Obama 75
+48:
+75:
+43:current - Trump to Obama 75
+6:a0
+6:a1
+6:a10
+6:a11
+6:a12
+6:a13
+6:a14
+6:a15
+6:a16
+6:a17
+6:a18
+6:a19
+6:a2
+6:a20
+6:a21
+6:a22
+6:a23
+6:a24
+6:a25
+6:a26
+6:a27
+6:a28
+6:a29
+6:a3
+6:a30
+6:a4
+6:a5
+6:a6
+6:a7
+6:a8
+6:a9
+6:c0
+6:c1
+6:c10
+6:c11
+6:c12
+6:c13
+6:c14
+6:c15
+6:c16
+6:c17
+6:c18
+6:c19
+6:c2
+6:c20
+6:c21
+6:c22
+6:c23
+6:c24
+6:c25
+6:c26
+6:c27
+6:c28
+6:c29
+6:c3
+6:c30
+6:c4
+6:c5
+6:c6
+6:c7
+6:c8
+6:c9
+6:Car
+6:LightTruck
